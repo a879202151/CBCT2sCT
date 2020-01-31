@@ -51,15 +51,18 @@ def load_test_data(image_path, fine_size=416):
     #img = (img+1024)/2047.5 - 1
     return img
 
-def load_train_data(image_path, load_size=286, fine_size=416, is_testing=False):
+def load_train_data(image_path,is_testing=False):
     img_A = imread(image_path[0])
     img_B = imread(image_path[1])
-    img_A = (img_A+1024)/7560-1.
-    img_B = (img_B+1024)/7560-1.
+    img_A = pre_process(img_A)
+    img_B = pre_process(img_B)
+
+    # img_A = (img_A+1024)/7560-1.
+    # img_B = (img_B+1024)/7560-1.
     # if not is_testing:
     #     img_A = skimage.transform.resize(img_A, (load_size, load_size))
     #     img_B = skimage.transform.resize(img_B, (load_size, load_size))
-    #     h1 = int(np.ceil(np.random.uniform(1e-2, load_size-fine_size)))
+    #     h1 = int(np.ceil(np.random.uniforms(1e-2, load_size-fine_size)))
     #     w1 = int(np.ceil(np.random.uniform(1e-2, load_size-fine_size)))
     #     img_A = img_A[h1:h1+fine_size, w1:w1+fine_size]
     #     img_B = img_B[h1:h1+fine_size, w1:w1+fine_size]
@@ -69,8 +72,8 @@ def load_train_data(image_path, load_size=286, fine_size=416, is_testing=False):
     #         img_B = np.fliplr(img_B)
     # else:
     #img_A = skimage.transform.resize(img_A, (fine_size, fine_size))
-    img_A = np.pad(img_A,((3,3),(3,3)),'constant',constant_values = (0,0))
-    img_B = skimage.transform.resize(img_B, (fine_size, fine_size))
+    # img_A = np.pad(img_A,((3,3),(3,3)),'constant',constant_values = (0,0))
+    # img_B = skimage.transform.resize(img_B, (fine_size, fine_size))
 
     img_A = np.expand_dims(img_A,axis=2)
     img_B = np.expand_dims(img_B,axis=2)
@@ -146,3 +149,24 @@ def transform(image, npx=64, is_crop=True, resize_w=64):
 
 #def inverse_transform(images):
     #return (images+1.)/2.
+def pre_process(image):
+    image = np.float64(image)
+    threshold,image_mask = cv2.threshold(image,-700,1,cv2.THRESH_BINARY)
+    kernel = np.ones((10,10))
+    image_mask = cv2.morphologyEx(image_mask,cv2.MORPH_CLOSE,kernel)
+    image_mask = np.array(image_mask,np.uint8)
+    cnt,hierarchy = cv2.findContours(image_mask,cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    delta = 0
+    n=[]
+    for i in range(len(cnt)):
+        if cv2.arcLength(cnt[i],True) > delta:
+            delte = cv2.arcLength(cnt[i],True)
+            n = cnt[i]
+    x1,y1,w1,h1 = cv2.boundingRect(np.array(n))
+    image = image[y1:y1+h1,x1:x1+w1]
+    image = image+700
+    image = cv2.threshold(image,0,0,cv2.THRESH_TOZERO)[1]
+    image = cv2.threshold(image,1200,1200,cv2.THRESH_TRUNC)[1]
+    image = cv2.resize(image,(256,256))
+    image = image/1200
+    return image
